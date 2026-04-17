@@ -6,7 +6,7 @@ import { PreviewGrid } from './components/PreviewGrid';
 import { CropModal } from './components/CropModal';
 import { ProgressOverlay } from './components/ProgressOverlay';
 import { ImageInfo, StickerPiece } from './types';
-import { clamp, createStickerCanvas } from './utils/image';
+import { clamp, createStickerCanvas, removeImageBackground } from './utils/image';
 import { downloadSingle, downloadZip } from './utils/export';
 import { Package, Trash2 } from 'lucide-react';
 
@@ -21,6 +21,7 @@ export default function App() {
   
   const [cropPiece, setCropPiece] = useState<StickerPiece | null>(null);
   const [progressText, setProgressText] = useState('');
+  const [bgRemoving, setBgRemoving] = useState(false);
 
   const handleFileSelect = (file: File) => {
     const reader = new FileReader();
@@ -141,6 +142,43 @@ export default function App() {
     setPadding(10);
   };
 
+  const handleRemoveBackground = async () => {
+    if (!imageInfo || bgRemoving) return;
+
+    setBgRemoving(true);
+    setProgressText('正在去背，第一次可能需要下載模型，請稍候...');
+
+    try {
+      const removedBgUrl = await removeImageBackground(imageInfo.src);
+      const newImage = new Image();
+
+      await new Promise<void>((resolve, reject) => {
+        newImage.onload = () => resolve();
+        newImage.onerror = () => reject(new Error('去背後圖片載入失敗'));
+        newImage.src = removedBgUrl;
+      });
+
+      setImageInfo((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          src: removedBgUrl,
+          width: newImage.width,
+          height: newImage.height,
+          image: newImage
+        };
+      });
+      setPieces([]);
+      setTabIndex(0);
+    } catch (error) {
+      console.error('背景移除失敗:', error);
+      alert('去背失敗，請換一張圖再試一次。');
+    } finally {
+      setBgRemoving(false);
+      setProgressText('');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-5 pb-16">
       <div className="max-w-5xl mx-auto">
@@ -160,7 +198,9 @@ export default function App() {
             <SourcePreview imageInfo={imageInfo} />
             <Controls
               rows={rows} cols={cols} padding={padding}
+              bgRemoving={bgRemoving}
               onRowsChange={setRows} onColsChange={setCols} onPaddingChange={setPadding}
+              onRemoveBackground={handleRemoveBackground}
               onCut={handleCut}
             />
           </>

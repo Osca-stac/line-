@@ -1,3 +1,5 @@
+import { removeBackground } from '@imgly/background-removal';
+
 export const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
 
 export const STICKER_MAX_W = 370;
@@ -82,4 +84,10 @@ export function formatBytes(bytes: number) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+export async function removeImageBackground(dataUrl: string): Promise<string> {
+  const originalBlob = await fetch(dataUrl).then((res) => res.blob());
+  const resultBlob = await removeBackground(originalBlob);
+  return URL.createObjectURL(resultBlob);
 }
